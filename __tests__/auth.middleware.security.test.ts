@@ -1,6 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import { authenticateToken, AuthRequest } from '../src/middleware/auth';
+import { appConfig } from '../src/config/app.config';
 
 type MockResponse = {
   status: ReturnType<typeof vi.fn>;
@@ -16,10 +17,6 @@ function createMockResponse(): MockResponse {
 }
 
 describe('authenticateToken middleware security', () => {
-  beforeEach(() => {
-    process.env.JWT_SECRET = 'test-secret';
-  });
-
   it('rejects requests without token', () => {
     const req = { headers: {} } as AuthRequest;
     const res = createMockResponse();
@@ -45,7 +42,7 @@ describe('authenticateToken middleware security', () => {
   });
 
   it('accepts valid token and populates req.user', () => {
-    const token = jwt.sign({ id: 'u-1', email: 'safe@example.com' }, process.env.JWT_SECRET as string);
+    const token = jwt.sign({ id: 'u-1', email: 'safe@example.com' }, appConfig.jwt.secret);
     const req = { headers: { authorization: `Bearer ${token}` } } as unknown as AuthRequest;
     const res = createMockResponse();
     const next = vi.fn();
