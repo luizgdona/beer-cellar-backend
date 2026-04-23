@@ -1,22 +1,23 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
-    branches: [master, develop]
+    branches: [main]
   pull_request:
-    branches: [master, develop]
+    branches: [main]
 
 jobs:
-  test:
+  quality:
+    name: Type-check · Lint · Audit · Test
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:15-alpine
         env:
-          POSTGRES_DB: beer_cellar_db
-          POSTGRES_USER: beer_user
-          POSTGRES_PASSWORD: beer123
+          POSTGRES_DB: beer_cellar_test
+          POSTGRES_USER: beercellar
+          POSTGRES_PASSWORD: beercellar123
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -26,7 +27,7 @@ jobs:
           - 5432:5432
 
       redis:
-        image: redis:7
+        image: redis:7-alpine
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 10s
@@ -36,77 +37,67 @@ jobs:
           - 6379:6379
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
 
-      - name: Install Backend Dependencies
-        run: |
-          cd backend
-          npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Lint Backend
-        run: |
-          cd backend
-          npm run lint || true
+      - name: Type-check
+        run: npm run type-check
 
-      - name: Test Backend
-        run: |
-          cd backend
-          npm run test:run || true
+      - name: Lint
+        run: npm run lint
+
+      - name: Security audit
+        run: npm audit --audit-level=high
+
+      - name: Test with coverage
+        run: npm run test:run
         env:
-          DATABASE_URL: postgresql://beer_user:beer123@localhost:5432/beer_cellar_db
+          NODE_ENV: test
+          PORT: 3001
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: beercellar
+          DB_PASSWORD: beercellar123
+          DB_NAME: beer_cellar_test
           REDIS_HOST: localhost
           REDIS_PORT: 6379
-
-      - name: Install Frontend Dependencies
-        run: |
-          cd frontend
-          npm ci
-
-      - name: Lint Frontend
-        run: |
-          cd frontend
-          npm run lint || true
-
-      - name: Build Frontend
-        run: |
-          cd frontend
-          npm run build || true
-
-      - name: Install Mobile Dependencies
-        run: |
-          cd mobile
-          npm ci
-
-      - name: Lint Mobile
-        run: |
-          cd mobile
-          npm run lint || true
+          JWT_SECRET: ci-test-jwt-secret-not-real
+          REFRESH_TOKEN_SECRET: ci-test-refresh-secret-not-real
+          AWS_ACCESS_KEY_ID: fake-key
+          AWS_SECRET_ACCESS_KEY: fake-secret
+          AWS_S3_BUCKET: fake-bucket
+          AWS_REGION: us-east-1
+          BACKEND_URL: http://localhost:3001
+          FRONTEND_URL: http://localhost:3000
 
   build:
-    needs: test
+    name: Build
     runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
 
-      - name: Build Backend
-        run: |
-          cd backend
-          npm ci
-          npm run build
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Build Frontend
-        run: |
-          cd frontend
-          npm ci
-          npm run build
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Verify dist exists
+        run: test -d dist && echo "Build output present" || (echo "dist/ missing" && exit 1)
