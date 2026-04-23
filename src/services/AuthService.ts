@@ -19,7 +19,7 @@ export class AuthService {
       throw new Error('User already exists');
     }
 
-    const hashedPassword = await bcryptjs.hash(password, 10);
+    const hashedPassword = await bcryptjs.hash(password, 12);
     const user = await UserRepository.createUser(email, hashedPassword, name);
 
     const tokenPayload: TokenPayload = { id: user.id, email: user.email };
