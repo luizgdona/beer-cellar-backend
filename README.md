@@ -1,33 +1,36 @@
 # Beer Cellar — Backend
 
-A RESTful API service for managing a personal beer collection. Users can register, authenticate, and catalog beers they own or have consumed, complete with tasting notes, purchase info, expiration tracking, image uploads, and Google Calendar reminders.
+![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=nodedotjs)
+![Express](https://img.shields.io/badge/Express-5-000000?logo=express)
+![TypeScript](https://img.shields.io/badge/TypeScript-5_strict-3178C6?logo=typescript)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+A RESTful API service for managing a personal beer collection. Users can register, authenticate, and catalog beers they own or have consumed — complete with tasting notes, purchase info, expiration tracking, image uploads, and Google Calendar reminders.
 
 ---
 
-## Tech Stack
+## Built With
 
-| Concern | Technology | Rationale |
+| Layer | Technology | Version |
 |---|---|---|
-| Runtime | Node.js + TypeScript 5 | Strong typing across the entire codebase; strict mode enforced |
-| Framework | Express 5 | Minimal footprint, async-native in v5, wide ecosystem |
-| ORM | TypeORM 0.3 | Decorator-based entities, migrations, QueryBuilder — no raw SQL |
-| Database | PostgreSQL 15 | Relational integrity for user-scoped beer data; JSONB available when needed |
-| Cache / Rate limiting | Redis 7 | Fast in-memory store for rate-limit counters and refresh-token allowlisting |
-| Validation | Zod 3 | Single schema definition drives both runtime validation and TypeScript types via `z.infer<>` |
-| Auth | JWT (access: 15 min, refresh: 7 days) | Stateless short-lived access tokens; refresh tokens enable seamless session renewal |
-| Password hashing | bcryptjs | Industry-standard adaptive hashing; pure JS, no native bindings required |
-| File storage | AWS S3 | Scalable, durable object storage for beer images |
-| Email | SMTP (EmailService) | Transactional emails for auth flows (welcome, password reset) |
-| Calendar integration | Google Calendar API | Non-blocking consumption reminders created on beer save |
-| Testing | Vitest | Fast, ESM-native test runner compatible with the TypeScript setup |
-| Logging | Custom Logger util | Structured log levels (info/warn/error); no stray `console.log` in production |
-| Containerization | Docker + Docker Compose | Reproducible local environment for Postgres, Redis, and the backend service |
+| Runtime | Node.js + TypeScript (strict) | 20+ / 5 |
+| Framework | Express | 5 |
+| ORM | TypeORM | 0.3 |
+| Database | PostgreSQL | 15 |
+| Cache / Rate limiting | Redis | 7 |
+| Validation | Zod | 3 |
+| Auth | JWT (access: 15 min · refresh: 7 days) | — |
+| Password hashing | bcryptjs (12 rounds) | 3 |
+| File storage | AWS S3 | — |
+| Testing | Vitest | — |
+| Containerization | Docker + Docker Compose | — |
 
 ---
 
 ## Architecture
-
-The codebase follows a strict layered architecture:
 
 ```
 Route → Middleware → Service → Repository → Entity
@@ -36,10 +39,10 @@ Route → Middleware → Service → Repository → Entity
 | Layer | Location | Responsibility |
 |---|---|---|
 | Routes | `src/routes/` | HTTP only — parse params/body, call service, format response. No business logic. |
-| Middleware | `src/middleware/` | Composable, stateless. Handles auth (`authenticateToken`), request validation (`validate(Schema)`), error handling, and rate limiting. |
-| Services | `src/services/` | All business logic and orchestration (e.g., saving a beer then creating a Google Calendar event). |
+| Middleware | `src/middleware/` | Auth (`authenticateToken`), request validation (`validate(Schema)`), error handling, rate limiting. |
+| Services | `src/services/` | All business logic and orchestration. |
 | Repositories | `src/repositories/` | The only layer that talks to TypeORM and the database directly. |
-| Schemas | `src/schemas/` | Zod schema definitions. TypeScript types are derived from these via `z.infer<>` — never defined separately. |
+| Schemas | `src/schemas/` | Zod schemas; TypeScript types are derived via `z.infer<>`. |
 | Entities | `src/entities/` | TypeORM entity classes that map to database tables. |
 
 ```
@@ -50,7 +53,7 @@ src/
 ├── repositories/ # BeerRepository, UserRepository
 ├── routes/       # auth.ts, beers.ts
 ├── schemas/      # Zod validation schemas
-├── services/     # BeerService, AuthService, GoogleCalendarService, etc.
+├── services/     # BeerService, AuthService, EmailService, etc.
 └── utils/        # Logger, tokenUtils, validators
 ```
 
@@ -63,17 +66,19 @@ src/
 **Response envelope:**
 
 ```json
-{ "success": true, "data": { ... } }
+{ "success": true,  "data": { ... } }
 { "success": false, "error": "message" }
 ```
 
 ### Auth — `/api/v1/auth`
 
-| Method | Path | Description | Auth required |
+| Method | Path | Auth required | Description |
 |---|---|---|---|
-| POST | `/auth/register` | Create account; returns user + token pair | No |
-| POST | `/auth/login` | Authenticate; returns user + token pair | No |
-| POST | `/auth/refresh` | Exchange refresh token for new token pair | No |
+| POST | `/auth/register` | No | Create account; returns user + token pair |
+| POST | `/auth/login` | No | Authenticate; returns user + token pair |
+| POST | `/auth/refresh` | No | Exchange refresh token for a new token pair |
+| GET  | `/auth/me` | Yes | Return the authenticated user's profile |
+| POST | `/auth/logout` | Yes | Invalidate the refresh token |
 
 ### Beers — `/api/v1/beers`
 
@@ -81,13 +86,13 @@ All beer routes require `Authorization: Bearer <accessToken>`.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/beers` | List beers for the authenticated user; supports `?status=available\|consumed&search=` |
-| POST | `/beers` | Create a new beer |
-| GET | `/beers/stats/summary` | Aggregate stats for the authenticated user |
-| GET | `/beers/:id` | Get a single beer |
-| PUT | `/beers/:id` | Full update of a beer |
+| GET    | `/beers` | List beers for the authenticated user (`?status=available\|consumed&search=`) |
+| POST   | `/beers` | Create a new beer |
+| GET    | `/beers/stats/summary` | Aggregate stats for the authenticated user |
+| GET    | `/beers/:id` | Get a single beer |
+| PUT    | `/beers/:id` | Full update of a beer |
 | DELETE | `/beers/:id` | Delete a beer |
-| PATCH | `/beers/:id/consume` | Mark a beer as consumed |
+| PATCH  | `/beers/:id/consume` | Mark a beer as consumed |
 
 ---
 
@@ -98,38 +103,37 @@ All beer routes require `Authorization: Bearer <accessToken>`.
 - Node.js 20+
 - PostgreSQL 15
 - Redis 7
-- npm
 
-> Alternatively, use Docker Compose to spin up Postgres and Redis — see the [Docker Compose](#docker-compose) section.
+> Alternatively, use Docker Compose to spin up Postgres and Redis — see [Docker Compose](#docker-compose) below.
 
-### Clone and Install
+### Clone and install
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/luizgdona/beer-cellar-backend.git
 cd beer-cellar-backend
 npm install
 ```
 
-### Environment Variables
-
-Copy the example below into a `.env` file at the project root and fill in the values for your environment. See the [Environment Variables](#environment-variables) section for the full list of required keys.
+### Environment variables
 
 ```bash
-cp .env.example .env   # if provided, otherwise create .env manually
+cp .env.example .env
 ```
 
-### Run in Development
+Fill in the values — see [Environment Variables](#environment-variables) for the full list. **Never commit `.env`.**
+
+### Development
 
 ```bash
-npm run dev:watch   # nodemon with auto-reload via ts-node
+npm run dev:watch   # nodemon with auto-reload
 ```
 
-The server starts on the port defined by `PORT` (default `3001`).
+Server starts on the port defined by `PORT` (default `3001`).
 
-### Build for Production
+### Production build
 
 ```bash
-npm run build   # emits compiled JS to dist/
+npm run build   # compiles TypeScript to dist/
 npm start       # runs dist/index.js
 ```
 
@@ -139,44 +143,42 @@ npm start       # runs dist/index.js
 
 ```bash
 npm test         # vitest in watch mode
-npm run test:run # vitest run — single pass (CI)
+npm run test:run # single pass (CI)
 ```
 
 ---
 
 ## Environment Variables
 
-Create a `.env` file in the project root. **Never commit this file.** The following variables are required:
+| Variable | Required | Description |
+|---|---|---|
+| `PORT` | No | HTTP port (default `3001`) |
+| `NODE_ENV` | No | `development`, `test`, or `production` |
+| `DB_HOST` | Yes | PostgreSQL host |
+| `DB_PORT` | No | PostgreSQL port (default `5432`) |
+| `DB_USERNAME` | Yes | PostgreSQL username |
+| `DB_PASSWORD` | Yes | PostgreSQL password |
+| `DB_NAME` | Yes | PostgreSQL database name |
+| `REDIS_HOST` | No | Redis host (default `localhost`) |
+| `REDIS_PORT` | No | Redis port (default `6379`) |
+| `JWT_SECRET` | Yes | Secret for signing access tokens |
+| `REFRESH_TOKEN_SECRET` | Yes | Secret for signing refresh tokens |
+| `AWS_ACCESS_KEY_ID` | No | AWS credentials for S3 image uploads |
+| `AWS_SECRET_ACCESS_KEY` | No | AWS credentials for S3 |
+| `AWS_S3_BUCKET` | No | S3 bucket name |
+| `AWS_REGION` | No | AWS region (default `us-east-1`) |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth client ID (Calendar integration) |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | No | OAuth redirect URI registered in Google Console |
+| `SMTP_HOST` | No | SMTP server host |
+| `SMTP_PORT` | No | SMTP port (default `2525`) |
+| `SMTP_USER` | No | SMTP username |
+| `SMTP_PASSWORD` | No | SMTP password |
+| `SMTP_FROM` | No | Sender address for transactional emails |
+| `BACKEND_URL` | No | Public URL of this service |
+| `FRONTEND_URL` | No | Public URL of the frontend (CORS + email links) |
 
-| Variable | Description |
-|---|---|
-| `PORT` | HTTP port the server listens on |
-| `NODE_ENV` | `development`, `test`, or `production` |
-| `DB_HOST` | PostgreSQL host |
-| `DB_PORT` | PostgreSQL port |
-| `DB_USERNAME` | PostgreSQL username |
-| `DB_PASSWORD` | PostgreSQL password |
-| `DB_NAME` | PostgreSQL database name |
-| `REDIS_HOST` | Redis host |
-| `REDIS_PORT` | Redis port |
-| `JWT_SECRET` | Secret for signing access tokens |
-| `REFRESH_TOKEN_SECRET` | Secret for signing refresh tokens |
-| `AWS_ACCESS_KEY_ID` | AWS credentials for S3 |
-| `AWS_SECRET_ACCESS_KEY` | AWS credentials for S3 |
-| `AWS_S3_BUCKET` | S3 bucket name for beer images |
-| `AWS_REGION` | AWS region (e.g. `us-east-1`) |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID for Calendar integration |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `GOOGLE_REDIRECT_URI` | OAuth redirect URI registered in Google Console |
-| `SMTP_HOST` | SMTP server host |
-| `SMTP_PORT` | SMTP server port |
-| `SMTP_USER` | SMTP username |
-| `SMTP_PASSWORD` | SMTP password |
-| `SMTP_FROM` | Sender address for transactional emails |
-| `BACKEND_URL` | Public URL of this backend service |
-| `FRONTEND_URL` | Public URL of the frontend (used in CORS and email links) |
-
-All values are accessed internally via the `appConfig` module (`src/config/app.config.ts`). Business code never reads `process.env` directly.
+All values are read exclusively by `src/config/app.config.ts`. Business code never accesses `process.env` directly.
 
 ---
 
@@ -184,53 +186,43 @@ All values are accessed internally via the `appConfig` module (`src/config/app.c
 
 The `docker-compose.yml` defines three services: `db` (Postgres 15), `redis` (Redis 7), and `backend`.
 
-### Spin up only the infrastructure dependencies
+### Infrastructure only (recommended for development)
 
 ```bash
 docker compose up db redis
 ```
 
-This starts Postgres on port `5432` and Redis on port `6379`, then you can run the backend locally with `npm run dev:watch`.
+Starts Postgres on `5432` and Redis on `6379`. Run the backend locally with `npm run dev:watch`.
 
-### Spin up everything
+### Full stack
 
 ```bash
 docker compose up
 ```
 
-This builds and starts the backend container alongside Postgres and Redis. The backend waits for both services to pass their health checks before starting.
-
-### Tear down
+Builds and starts the backend container alongside Postgres and Redis. The backend waits for both services to pass their health checks before starting.
 
 ```bash
-docker compose down          # stop and remove containers
-docker compose down -v       # also remove named volumes (wipes DB data)
+docker compose down      # stop containers
+docker compose down -v   # also remove volumes (wipes DB data)
 ```
 
 ---
 
 ## Key Design Decisions
 
-### All beer queries are scoped by `userId`
+**Beer queries are scoped by `userId`** — Every database read and write for the `Beer` entity includes `userId` in the `WHERE` clause. The user identity comes exclusively from `req.user.id` (the verified JWT payload), never from a client-supplied field. This prevents horizontal privilege escalation.
 
-Every database read and write for the `Beer` entity includes `userId` in the `WHERE` clause. The user identity always comes from `req.user.id` (the verified JWT payload) — never from a client-supplied field. This prevents horizontal privilege escalation.
+**Zod is the single source of truth for types** — Schemas are defined once as Zod objects in `src/schemas/`. TypeScript types are derived via `z.infer<>`. Manual type definitions that duplicate the schema are prohibited.
 
-### Zod is the single source of truth for types
+**Integration failures are non-blocking** — Google Calendar event creation and outbound email are side effects. If either fails, the error is logged and discarded. The primary HTTP response is unaffected, preventing third-party outages from degrading core functionality.
 
-Schemas in `src/schemas/` are defined once as Zod objects. TypeScript types are derived via `z.infer<>`. Manual type definitions that would duplicate the schema are prohibited. This eliminates the class of bug where the runtime validator and the TypeScript type drift apart.
+**Config is centralized** — `src/config/app.config.ts` is the only place that reads `process.env`. This makes environment dependencies explicit and easy to mock in tests.
 
-### Integration failures are non-blocking
+**Middleware is composable and stateless** — Protected routes apply `authenticateToken` then `validate(Schema)` in sequence. Each middleware piece has a single responsibility and no mutable state.
 
-Google Calendar event creation and outbound email are side effects. If either fails, the failure is caught, logged via `Logger`, and discarded. The primary HTTP response (e.g., `201 Created` for a new beer) is unaffected. This prevents third-party API outages from degrading core functionality.
+---
 
-### Config is centralized
+## License
 
-`src/config/app.config.ts` is the only place in the codebase that reads `process.env`. Services, repositories, and routes import from `appConfig`. This makes the dependency on environment state explicit and easy to mock in tests.
-
-### No raw SQL
-
-All database access goes through TypeORM's repository methods or `QueryBuilder`. Raw SQL strings are prohibited. This keeps queries type-safe, database-portable, and protected against SQL injection by default.
-
-### Middleware is composable and stateless
-
-Protected routes apply `authenticateToken` followed by `validate(Schema)` in sequence. Each middleware piece has a single responsibility and carries no mutable state, making the pipeline easy to reason about and test in isolation.
+MIT
