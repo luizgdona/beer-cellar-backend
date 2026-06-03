@@ -5,15 +5,15 @@ services:
     image: postgres:15-alpine
     container_name: beer-cellar-db
     environment:
-      POSTGRES_USER: ${DB_USER:-beercellar}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-beercellar123}
+      POSTGRES_USER: ${DB_USERNAME:-beercellar}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME:-beer_cellar_db}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U beercellar"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-beercellar}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,25 +40,10 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: beer-cellar-backend
+    env_file:
+      - .env
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_URL: postgresql://${DB_USER:-beercellar}:${DB_PASSWORD:-beercellar123}@db:5432/${DB_NAME:-beer_cellar_db}
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET:-your-super-secret-refresh-key}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3000/api/v1/google/callback}
-      SMTP_HOST: ${SMTP_HOST:-smtp.mailtrap.io}
-      SMTP_PORT: ${SMTP_PORT:-2525}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_FROM: ${SMTP_FROM:-noreply@beercellar.com}
-      BACKEND_URL: ${BACKEND_URL:-http://localhost:3001}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: 3001
     ports:
       - "3001:3001"
@@ -67,10 +52,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - .:/app
-      - /app/node_modules
-    command: npm run dev
     networks:
       - beer-cellar-network
 
