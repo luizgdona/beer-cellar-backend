@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 export class EmailService {
   private smtpHost = process.env.SMTP_HOST || 'smtp.mailtrap.io';
   private smtpPort = parseInt(process.env.SMTP_PORT || '2525');
@@ -19,8 +17,8 @@ export class EmailService {
         <p>Cheers!</p>
       `;
 
-      // In production, use nodemailer or similar
-      console.log(`Email reminder sent to ${to}: ${subject}`);
+      // TODO: replace with nodemailer or AWS SES in production
+      console.log(`[EmailService] Reminder to ${to} | subject: ${subject} | smtp: ${this.smtpHost}:${this.smtpPort} | from: ${this.from}`, htmlContent);
     } catch (error) {
       console.error('Error sending email:', error);
       throw new Error('Failed to send email');
@@ -37,7 +35,8 @@ export class EmailService {
         <p>Start managing your beer collection today!</p>
       `;
 
-      console.log(`Welcome email sent to ${to}`);
+      // TODO: replace with nodemailer or AWS SES in production
+      console.log(`[EmailService] Welcome to ${to} | subject: ${subject} | smtp: ${this.smtpHost}:${this.smtpPort} | user: ${this.smtpUser}`, htmlContent);
     } catch (error) {
       console.error('Error sending welcome email:', error);
       throw new Error('Failed to send welcome email');

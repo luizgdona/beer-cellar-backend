@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 export class StorageService {
   private bucketName = process.env.AWS_S3_BUCKET || 'beer-cellar';
   private region = process.env.AWS_REGION || 'us-east-1';

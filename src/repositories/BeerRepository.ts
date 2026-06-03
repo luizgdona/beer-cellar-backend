@@ -1,4 +1,3 @@
-import { Repository } from 'typeorm';
 import { AppDataSource } from '../config/database';
 import { Beer } from '../entities/Beer';
 

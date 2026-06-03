@@ -1,5 +1,4 @@
 import bcryptjs from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { UserRepository } from '../repositories/UserRepository';
 import { User } from '../entities/User';
 import { TokenUtils, TokenPayload } from '../utils/tokenUtils';

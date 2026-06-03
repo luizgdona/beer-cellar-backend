@@ -2,10 +2,8 @@ import { BeerRepository } from '../repositories/BeerRepository';
 import { Beer } from '../entities/Beer';
 import { CreateBeerInput, UpdateBeerInput } from '../schemas/beer.schemas';
 import { GoogleCalendarService } from './GoogleCalendarService';
-import { EmailService } from './EmailService';
 
 const googleCalendarService = new GoogleCalendarService();
-const emailService = new EmailService();
 
 export class BeerService {
   async getBeers(userId: string, filters?: { status?: string; search?: string }): Promise<Beer[]> {
@@ -67,7 +65,7 @@ export class BeerService {
       throw new Error('Beer not found');
     }
 
-    const updated = await BeerRepository.update({ id: beerId, userId }, beerData);
+    await BeerRepository.update({ id: beerId, userId }, beerData);
     return this.getBeerById(userId, beerId);
   }
 
@@ -86,7 +84,7 @@ export class BeerService {
       throw new Error('Beer not found');
     }
 
-    const consumed = await BeerRepository.update(
+    await BeerRepository.update(
       { id: beerId, userId },
       {
         consumed: true,

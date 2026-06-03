@@ -18,7 +18,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
     const decoded = jwt.verify(token, appConfig.jwt.secret) as { id: string; email: string };
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch {
     return res.status(403).json({ error: 'Invalid token' });
   }
 }
